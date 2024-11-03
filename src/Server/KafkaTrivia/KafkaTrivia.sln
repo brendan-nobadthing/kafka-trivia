@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "KafkaTriviaApi", "KafkaTriviaApi\KafkaTriviaApi.csproj", "{C1CB4387-DE74-4F98-95BE-5878306C3472}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StreamTest", "StreamTest\StreamTest.csproj", "{D93333D9-02D3-4FCD-B0A0-468BAD829CD8}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{C1CB4387-DE74-4F98-95BE-5878306C3472}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C1CB4387-DE74-4F98-95BE-5878306C3472}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C1CB4387-DE74-4F98-95BE-5878306C3472}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C1CB4387-DE74-4F98-95BE-5878306C3472}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D93333D9-02D3-4FCD-B0A0-468BAD829CD8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D93333D9-02D3-4FCD-B0A0-468BAD829CD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D93333D9-02D3-4FCD-B0A0-468BAD829CD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D93333D9-02D3-4FCD-B0A0-468BAD829CD8}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
