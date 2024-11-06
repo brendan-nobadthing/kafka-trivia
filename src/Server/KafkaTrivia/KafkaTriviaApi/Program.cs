@@ -3,26 +3,35 @@ using System.Text.Json;
 using Confluent.Kafka;
 using KafkaTriviaApi;
 using KafkaTriviaApi.Contracts;
+using KafkaTriviaApi.KafkaStreams;
 using Microsoft.AspNetCore.Mvc;
+using Serilog;
 using Streamiz.Kafka.Net;
 using Streamiz.Kafka.Net.State;
 
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console()
+    .CreateLogger();
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddSerilog();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 
 builder.Services.AddSingleton(builder.Configuration.GetSection("producer").Get<ProducerConfig>()!);
 
 var kss = new KafkaStreamService();
 builder.Services.AddSingleton(kss);
 builder.Services.AddHostedService(_ => kss);
+builder.Services.AddSingleton<KafkaInit>();
+
 
 var app = builder.Build();
-
 // Configure the HTTP request pipeline.
+app.UseSerilogRequestLogging();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -39,13 +48,12 @@ app.MapPost("/NewGame", async (
     {
         var gameId = Guid.NewGuid();
 
-        var store = kss.Stream!.Store(StoreQueryParameters.FromNameAndType("game-state-store",
+        var store = kss.Stream!.Store(StoreQueryParameters.FromNameAndType("game-name-store",
             QueryableStoreTypes.KeyValueStore<string, GameStateChanged>()));
 
-        foreach (var kvp in store.All())
-        {
-            Console.WriteLine($"queried name: {kvp.Value.Name}");
-        }
+
+        var existing = store.Get(name);
+        if (existing != null) Log.Warning("Game {@name} already exists", existing.Name);
         
         var _producer = new ProducerBuilder<string, string>(producerConfig).Build();
         await _producer.ProduceAsync("game-state-changed", new Message<string, string>()
@@ -58,6 +66,8 @@ app.MapPost("/NewGame", async (
     .WithName("NewGame")
     .WithOpenApi();
 
+
+app.Services.GetService<KafkaInit>()!.InitTopics().GetAwaiter().GetResult();
 
 app.Run();
 

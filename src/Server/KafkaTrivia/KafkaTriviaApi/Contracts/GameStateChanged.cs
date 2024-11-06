@@ -2,9 +2,12 @@ namespace KafkaTriviaApi.Contracts;
 
 public record GameStateChanged(
     Guid GameId,
-    String Name,
+    string Name,
     GameState GameState,
     int? CurrentQuestionNumber,
     DateTime TimestampUtc);
     
-    
+    public record GameName(
+        string Name,
+        DateTime TimestampUtc
+    );

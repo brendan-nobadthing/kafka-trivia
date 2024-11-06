@@ -4,7 +4,7 @@ using Streamiz.Kafka.Net.SerDes;
 using Streamiz.Kafka.Net.Stream;
 using Streamiz.Kafka.Net.Table;
 
-namespace KafkaTriviaApi;
+namespace KafkaTriviaApi.KafkaStreams;
 
 public class KafkaStreamService: IHostedService
 {
@@ -18,12 +18,7 @@ public class KafkaStreamService: IHostedService
 
         StreamBuilder builder = new StreamBuilder();
 
-        var gameStateTable = builder.GlobalTable<string, GameStateChanged>(
-            "game-state-changed", 
-            new StringSerDes(),
-            new JsonSerDes<GameStateChanged>(),
-            InMemory.As<string, GameStateChanged>("game-state-store").WithValueSerdes<JsonSerDes<GameStateChanged>>());
-        
+        builder.AddFromAssembly();
         
         Topology t = builder.Build();
         stream = new KafkaStream(t, config);
@@ -33,7 +28,7 @@ public class KafkaStreamService: IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
-        stream.Dispose();
+        stream?.Dispose();
         return Task.CompletedTask;
     }
     
