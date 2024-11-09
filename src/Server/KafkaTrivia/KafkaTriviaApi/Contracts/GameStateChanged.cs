@@ -7,7 +7,4 @@ public record GameStateChanged(
     int? CurrentQuestionNumber,
     DateTime TimestampUtc);
     
-    public record GameName(
-        string Name,
-        DateTime TimestampUtc
-    );
+    
