@@ -1,8 +1,8 @@
-using KafkaTriviaApi.Contracts;
+using System.Collections.Immutable;
+using Serilog;
 using Streamiz.Kafka.Net;
 using Streamiz.Kafka.Net.SerDes;
 using Streamiz.Kafka.Net.Stream;
-using Streamiz.Kafka.Net.Table;
 
 namespace KafkaTriviaApi.KafkaStreams;
 
@@ -17,15 +17,16 @@ public class KafkaStreamService: IHostedService
         config.BootstrapServers = "localhost:9092";
 
         StreamBuilder builder = new StreamBuilder();
-
-        builder.AddFromAssembly();
+        builder.BuildApplicationStreams();
         
         Topology t = builder.Build();
-        stream = new KafkaStream(t, config);
         
+        Log.Information("starting with stare dir {@StateDir}", config.StateDir);
+        stream = new KafkaStream(t, config);
         await stream.StartAsync();
     }
-
+    
+    
     public Task StopAsync(CancellationToken cancellationToken)
     {
         stream?.Dispose();
@@ -33,4 +34,19 @@ public class KafkaStreamService: IHostedService
     }
     
     public KafkaStream? Stream => stream;
+
+
+    public class TopicNames
+    {
+        public const string GameState = "game-state";
+        public const string GameStateTable = "game-state-table";
+        public const string OpenGamesByNameTable = "open-games-by-name";
+        
+        public const string AddParticipant = "add-participant";
+        public static string GameParticipantsTable => "game-participants-table";
+        
+    }
+    
+   
+
 }

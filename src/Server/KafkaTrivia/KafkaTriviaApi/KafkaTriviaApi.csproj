@@ -16,7 +16,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <Folder Include="Rest\" />
       <Folder Include="SignalR\" />
     </ItemGroup>
     

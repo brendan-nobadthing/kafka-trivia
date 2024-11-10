@@ -1,4 +1,4 @@
-namespace KafkaTriviaApi.Contracts;
+namespace KafkaTriviaApi.Application.Models;
 
 public record GameParticipantAnswer(
     Guid GameId,
