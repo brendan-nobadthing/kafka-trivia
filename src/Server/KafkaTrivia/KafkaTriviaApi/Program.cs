@@ -1,4 +1,5 @@
 using Confluent.Kafka;
+using KafkaTriviaApi.GraphQL;
 using KafkaTriviaApi.KafkaProducer;
 using KafkaTriviaApi.KafkaStreams;
 using KafkaTriviaApi.Rest;
@@ -18,10 +19,16 @@ builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Pr
 builder.Services.AddSingleton(builder.Configuration.GetSection("producer").Get<ProducerConfig>()!);
 builder.Services.AddKafkaProducers();
 
-var kss = new KafkaStreamService();
-builder.Services.AddSingleton(kss);
-builder.Services.AddHostedService(_ => kss);
+
+builder.Services.AddSingleton<KafkaStreamService>();
+builder.Services.AddHostedService(s => s.GetRequiredService<KafkaStreamService>());
 builder.Services.AddSingleton<KafkaInit>();
+
+builder.Services
+    .AddGraphQLServer()
+    .AddQueryType<Query>()
+    .AddSubscriptionType<Subscription>()
+    .AddInMemorySubscriptions();
 
 
 var app = builder.Build();
@@ -37,6 +44,8 @@ app.UseHttpsRedirection();
 
 // Add rest endpoints via extensions methods
 app.AddEndpoints();
+app.UseWebSockets();
+app.MapGraphQL();
 
 app.Services.GetService<KafkaInit>()!.InitTopics().GetAwaiter().GetResult();
 

@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using HotChocolate.Subscriptions;
 using Serilog;
 using Streamiz.Kafka.Net;
 using Streamiz.Kafka.Net.SerDes;
@@ -6,7 +7,7 @@ using Streamiz.Kafka.Net.Stream;
 
 namespace KafkaTriviaApi.KafkaStreams;
 
-public class KafkaStreamService: IHostedService
+public class KafkaStreamService(ITopicEventSender gqlSender): IHostedService
 {
     private KafkaStream? stream;
     
@@ -17,7 +18,7 @@ public class KafkaStreamService: IHostedService
         config.BootstrapServers = "localhost:9092";
 
         StreamBuilder builder = new StreamBuilder();
-        builder.BuildApplicationStreams();
+        builder.BuildApplicationStreams(gqlSender);
         
         Topology t = builder.Build();
         

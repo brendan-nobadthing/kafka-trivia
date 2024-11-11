@@ -8,15 +8,12 @@
 
     <ItemGroup>
         <PackageReference Include="Confluent.Kafka" Version="2.6.0" />
+        <PackageReference Include="HotChocolate.AspNetCore" Version="14.1.0" />
         <PackageReference Include="Mediatr" Version="12.4.1" />
         <PackageReference Include="Serilog.AspNetCore" Version="8.0.3" />
         <PackageReference Include="Streamiz.Kafka.Net" Version="1.6.0" />
         <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.10" />
         <PackageReference Include="Swashbuckle.AspNetCore" Version="6.6.2" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Folder Include="SignalR\" />
     </ItemGroup>
     
 

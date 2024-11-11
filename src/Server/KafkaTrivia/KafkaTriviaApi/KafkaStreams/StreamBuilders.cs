@@ -1,4 +1,5 @@
 using System.Reflection;
+using HotChocolate.Subscriptions;
 using KafkaTriviaApi.Application.Models;
 using Serilog;
 using Streamiz.Kafka.Net;
@@ -13,7 +14,7 @@ public static class StreamBuilders
 {
     
     
-    public static StreamBuilder BuildApplicationStreams(this StreamBuilder builder)
+    public static StreamBuilder BuildApplicationStreams(this StreamBuilder builder, ITopicEventSender gqlSender)
     {
         var gameState = builder.GameStateStream();
         var gameStateTable = builder.GameStateChangedToTable(gameState);
@@ -28,6 +29,9 @@ public static class StreamBuilders
         gameParticipantsTable
             .ToStream()
             .Peek((k, v) => Log.Information("** Game Participants: {@GameParticipants}", v));
+
+        gameParticipantsTable.ToStream()
+            .Peek((k, v) => gqlSender.SendAsync("GameParticipantsChanged", new GameParticipants(v.FirstOrDefault()?.GameId ?? Guid.Empty, v)));
         
         return builder;
     }
@@ -75,14 +79,6 @@ public static class StreamBuilders
                     new StringSerDes(),
                     new JsonSerDes<GameParticipant>())
                 //.Peek((k, v) => Log.Information("Game Participant stream: {@Key} {@GameParticipant}", k, v))
-                .LeftJoin(
-                    gameStateTable, //.Filter((k, v) => v.GameState == GameState.LobbyOpen),
-                    (p, g) =>
-                    {
-                        Log.Information("Game Participant join: {@GameParticipant} {@Game}", p, g);
-                        return p;
-                    })
-                //.Peek((k, v) => Log.Information("Game Participant stream after join: {@Key}, {@GameParticipant}", k, v))
                 .GroupByKey()
                 .Aggregate(
                     () => new List<GameParticipant>(),
@@ -95,6 +91,4 @@ public static class StreamBuilders
                 );
             return result;
     }
-    
-    
 }
