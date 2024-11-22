@@ -15,15 +15,19 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs"
+import { useGameStore } from '../store/GameStore'
  
 export function Home() {
+
+  const newGame = useGameStore(s => s.newGame);
+  const checkNewGame = useGameStore(s => s.checkNewGame);
   return (
     <>
     <h1>Fast Trivia</h1>
     <Tabs defaultValue="join" className="w-[400px]">
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="join">Join Game</TabsTrigger>
-        <TabsTrigger value="password">New Game</TabsTrigger>
+        <TabsTrigger value="new-game">New Game</TabsTrigger>
       </TabsList>
       <TabsContent value="join">
         <Card>
@@ -53,26 +57,22 @@ export function Home() {
           </CardFooter>
         </Card>
       </TabsContent>
-      <TabsContent value="password">
+      <TabsContent value="new-game">
         <Card>
           <CardHeader>
-            <CardTitle>Password</CardTitle>
+            <CardTitle>New Game</CardTitle>
             <CardDescription>
-              Change your password here. After saving, you'll be logged out.
+             Give your game a name or code. Other users can use this to join your game
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
             <div className="space-y-1">
-              <Label htmlFor="current">Current password</Label>
-              <Input id="current" type="password" />
-            </div>
-            <div className="space-y-1">
-              <Label htmlFor="new">New password</Label>
-              <Input id="new" type="password" />
-            </div>
+              <Label htmlFor="new-game-name">Game Name</Label>
+              <Input id="new-game-name"  /> {/* onChange={(e) => checkNewGame(e.target.value)} */}
+            </div>      
           </CardContent>
           <CardFooter>
-            <Button>Save password</Button>
+            <Button>Create Game</Button>
           </CardFooter>
         </Card>
       </TabsContent>
