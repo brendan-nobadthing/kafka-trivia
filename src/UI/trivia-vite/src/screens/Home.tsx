@@ -19,12 +19,12 @@ import { useGameStore } from '../store/GameStore'
  
 export function Home() {
 
-  const newGame = useGameStore(s => s.newGame);
-  const checkNewGame = useGameStore(s => s.checkNewGame);
+  const newOrJoinState = useGameStore(s => s.newOrJoinState);
+  const checkGame = useGameStore(s => s.checkGame);
   return (
     <>
     <h1>Fast Trivia</h1>
-    <Tabs defaultValue="join" className="w-[400px]">
+    <Tabs defaultValue="join" className="w-[400px]" onValueChange={(v) => checkGame(newOrJoinState.name, v == 'new-game')}>
       <TabsList className="grid w-full grid-cols-2">
         <TabsTrigger value="join">Join Game</TabsTrigger>
         <TabsTrigger value="new-game">New Game</TabsTrigger>
@@ -41,7 +41,8 @@ export function Home() {
           <CardContent className="space-y-2">
           <div className="space-y-1">
               <Label htmlFor="code">Game Code</Label>
-              <Input id="code" defaultValue="" />
+              <Input id="code" value={newOrJoinState.name} onChange={(e) => checkGame(e.target.value, false)} />
+              <Label htmlFor="name">{newOrJoinState.error}</Label>
             </div>
             <div className="space-y-1">
               <Label htmlFor="name">Display Name</Label>
@@ -53,7 +54,7 @@ export function Home() {
             </div>
           </CardContent>
           <CardFooter>
-            <Button>Join Game</Button>
+            <Button disabled={!newOrJoinState.isAvailable}>Join Game</Button>
           </CardFooter>
         </Card>
       </TabsContent>
@@ -68,15 +69,16 @@ export function Home() {
           <CardContent className="space-y-2">
             <div className="space-y-1">
               <Label htmlFor="new-game-name">Game Name</Label>
-              <Input id="new-game-name"  /> {/* onChange={(e) => checkNewGame(e.target.value)} */}
+              <Input id="new-game-name" value={newOrJoinState.name} onChange={(e) => checkGame(e.target.value, true)}  /> {/* */}
             </div>      
           </CardContent>
           <CardFooter>
-            <Button>Create Game</Button>
+            <Button disabled={!newOrJoinState.isAvailable}>Create Game</Button>
           </CardFooter>
         </Card>
       </TabsContent>
     </Tabs>
+    <div><pre>{JSON.stringify(newOrJoinState, null, 2) }</pre></div>
     </>
     
   )

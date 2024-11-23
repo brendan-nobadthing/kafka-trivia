@@ -15,6 +15,8 @@ builder.Services.AddSerilog();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddHttpClient();
+
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 builder.Services.AddSingleton(builder.Configuration.GetSection("producer").Get<ProducerConfig>()!);
 builder.Services.AddKafkaProducers();
@@ -30,6 +32,14 @@ builder.Services
     .AddSubscriptionType<Subscription>()
     .AddInMemorySubscriptions();
 
+builder.Services.AddCors(c => c.AddDefaultPolicy(corsPolicyBuilder =>
+{
+    corsPolicyBuilder
+        .SetIsOriginAllowed(o => new Uri(o).Host == "localhost")
+        .AllowAnyMethod()
+        .AllowAnyHeader();
+}));
+
 
 var app = builder.Build();
 // Configure the HTTP request pipeline.
@@ -38,6 +48,7 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+    app.UseCors();
 }
 
 app.UseHttpsRedirection();
