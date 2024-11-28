@@ -114,14 +114,25 @@ public static class StreamBuilders
                 KafkaStreamService.TopicNames.StartGame,
                 new StringSerDes(),
                 new JsonSerDes<StartGame>())
-            .MapValuesAsync<GameQuestions>(async (kv, ctx) => 
-                await mediator.Send(new FetchQuestions(){GameId = kv.Value.GameId}));
+            .Peek((k, v) => Log.Information("* Start Game {@GameId}", k));
+            
+            
+        var questionsStream = stream.MapValuesAsync<GameQuestions>(
+            async (kv, ctx) => 
+                await mediator.Send(new FetchQuestions() { GameId = kv.Value.GameId }),
+            RetryPolicy.NewBuilder().NumberOfRetry(5).Build(),
+            new RequestSerDes<string, StartGame>(new StringSerDes(), new JsonSerDes<StartGame>()),
+            new ResponseSerDes<string, GameQuestions>(new StringSerDes(), new JsonSerDes<GameQuestions>())
+            )
+            .Peek((k, v) => Log.Information("* Got Questions {@Questions}", v));
         
         // update GameQuestions state
-        stream.To(KafkaStreamService.TopicNames.GameQuestions, new StringSerDes(), new JsonSerDes<GameQuestions>());
+        questionsStream.To(KafkaStreamService.TopicNames.GameQuestions, new StringSerDes(), new JsonSerDes<GameQuestions>());
         
         // Send NextQuestion command
-        stream.MapValues<NextQuestion>(v => new NextQuestion(){GameId = v.GameId})
+        stream.MapValues<NextQuestion>(
+                v => new NextQuestion(){GameId = v.GameId})
+            .Peek((k,v) => Log.Information("* Got NextQuestion {@NextQuestion}", v))
             .To(KafkaStreamService.TopicNames.NextQuestion, new StringSerDes(), new JsonSerDes<NextQuestion>());
     }
 
@@ -135,22 +146,22 @@ public static class StreamBuilders
     // handle NextQuestionCommand. push update to core game state. Schedule the CloseQuestion command
     public static void HandleNextQuestion(this StreamBuilder builder, IKTable<string, Game> gameStateTable)
     {
-        var nextQuestionStream = builder.Stream<string, NextQuestion>(
-            KafkaStreamService.TopicNames.NextQuestion,
-            new StringSerDes(),
-            new JsonSerDes<NextQuestion>());
-
-        nextQuestionStream.Join(gameStateTable,
-            (nextQuestion, game) => game with { CurrentQuestionNumber = game.CurrentQuestionNumber + 1 })
-            .To(KafkaStreamService.TopicNames.GameState);
-            
-        
-        nextQuestionStream.MapValuesAsync<CloseQuestion>(async (kv, ctx) =>
-        {
-            await Task.Delay(10 * 1000);
-            return new CloseQuestion() { GameId = kv.Value.GameId };
-        })
-        .To(KafkaStreamService.TopicNames.CloseQuestion, new StringSerDes(), new JsonSerDes<CloseQuestion>());
+        // var nextQuestionStream = builder.Stream<string, NextQuestion>(
+        //     KafkaStreamService.TopicNames.NextQuestion,
+        //     new StringSerDes(),
+        //     new JsonSerDes<NextQuestion>());
+        //
+        // nextQuestionStream.Join(gameStateTable,
+        //     (nextQuestion, game) => game with { CurrentQuestionNumber = game.CurrentQuestionNumber + 1 })
+        //     .To(KafkaStreamService.TopicNames.GameState);
+        //     
+        //
+        // nextQuestionStream.MapValuesAsync<CloseQuestion>(async (kv, ctx) =>
+        // {
+        //     await Task.Delay(10 * 1000);
+        //     return new CloseQuestion() { GameId = kv.Value.GameId };
+        // })
+        // .To(KafkaStreamService.TopicNames.CloseQuestion, new StringSerDes(), new JsonSerDes<CloseQuestion>());
     }
 
 

@@ -96,6 +96,7 @@ mutation newGame ($name: String!) {
       gravatarCode
       name
       participantId
+      isOwner
     }
 }
 `
@@ -107,6 +108,7 @@ mutation addParticipant($gameName: String!, $displayName: String!, $email: Strin
     gravatarCode
     name
     participantId
+    isOwner
   }
 }
 `

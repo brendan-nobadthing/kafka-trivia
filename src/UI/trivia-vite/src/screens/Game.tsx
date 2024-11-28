@@ -16,6 +16,7 @@ subscription participants ($gameId: UUID!) {
       gravatarCode
       name
       participantId
+      isOwner
     }
   }
 }
@@ -73,7 +74,7 @@ export function Game() {
           if (userGameState.game.gameState == GameState.QuestionResult) return (<QuestionResult/>)
         })()
       }
-    <div><pre>{JSON.stringify(userGameState, null, 2) }</pre></div>
+    
     </>
      
   )

@@ -67,7 +67,7 @@ export function Lobby() {
               >Start Game</Button>
           </CardFooter>
         </Card>
-     
+        <div><pre>{JSON.stringify(userGameState, null, 2) }</pre></div>
     </>
     
   )

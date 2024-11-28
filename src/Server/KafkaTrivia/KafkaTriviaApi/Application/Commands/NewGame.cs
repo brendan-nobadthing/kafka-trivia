@@ -25,7 +25,7 @@ public class NewGameHandler(IMediator mediator, IMessageSender<Game> gameSender,
         // register game owner as a participant
         var participant = new GameParticipant(
             gameId, Guid.NewGuid(), "Owner", "", true);
-        await participantSender.Send(participant.ParticipantId.ToString(), participant, cancellationToken);
+        await participantSender.Send(gameId.ToString(), participant, cancellationToken);
 
         return participant;
     }
