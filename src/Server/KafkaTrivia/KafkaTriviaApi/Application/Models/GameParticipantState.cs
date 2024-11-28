@@ -7,7 +7,7 @@ public record GameParticipantState(
     GameParticipant Participant,
     Game Game,
     string CurrentQuestion,
-    string[] Answers//,
+    IList<string> Answers//,
     //bool[] PrevResults,
     //int[] PrevScores
     );

@@ -6,25 +6,28 @@ using MediatR;
 
 namespace KafkaTriviaApi.Application.Commands;
 
-public class AddParticipant : IRequest
+public class AddParticipant : IRequest<GameParticipant>
 {
     public string GameName { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
-    public Guid ParticipantId { get; set; }
 }
 
 
 
-public class AddParticipantHandler(IMediator mediator, IMessageSender<GameParticipant> sender) : IRequestHandler<AddParticipant>
+public class AddParticipantHandler(IMediator mediator, IMessageSender<GameParticipant> sender) : IRequestHandler<AddParticipant, GameParticipant>
 {
-    public async Task Handle(AddParticipant request, CancellationToken cancellationToken)
+    public async Task<GameParticipant> Handle(AddParticipant request, CancellationToken cancellationToken)
     {
+        var participantId = Guid.NewGuid();
         var game = await mediator.Send(new GetOpenGameByName() { Name = request.GameName }, cancellationToken);
         if (game is null) throw new NotFoundException("Game", request.GameName);
         
+        var participant = new GameParticipant(game.GameId, participantId, request.Name, "xxx");
         await sender.Send(game.GameId.ToString(), 
-            new GameParticipant(game.GameId, request.ParticipantId, request.Name, request.Email), 
+            participant, 
             cancellationToken);
+        
+        return participant;
     }
 }

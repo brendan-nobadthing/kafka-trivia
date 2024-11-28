@@ -1,13 +1,16 @@
 using System.Collections.Immutable;
 using HotChocolate.Subscriptions;
+using KafkaTriviaApi.Application.Commands;
+using MediatR;
 using Serilog;
 using Streamiz.Kafka.Net;
+using Streamiz.Kafka.Net.Processors;
 using Streamiz.Kafka.Net.SerDes;
 using Streamiz.Kafka.Net.Stream;
 
 namespace KafkaTriviaApi.KafkaStreams;
 
-public class KafkaStreamService(ITopicEventSender gqlSender): IHostedService
+public class KafkaStreamService(ITopicEventSender gqlSender, IMediator mediator): IHostedService
 {
     private KafkaStream? stream;
     
@@ -18,7 +21,7 @@ public class KafkaStreamService(ITopicEventSender gqlSender): IHostedService
         config.BootstrapServers = "localhost:9092";
 
         StreamBuilder builder = new StreamBuilder();
-        builder.BuildApplicationStreams(gqlSender);
+        builder.BuildApplicationStreams(gqlSender, mediator);
         
         Topology t = builder.Build();
         
@@ -44,8 +47,13 @@ public class KafkaStreamService(ITopicEventSender gqlSender): IHostedService
         public const string OpenGamesByNameTable = "open-games-by-name";
         
         public const string AddParticipant = "add-participant";
-        public static string GameParticipantsTable => "game-participants-table";
-        
+        public const string GameParticipantsTable = "game-participants-table";
+        public const string StartGame = "start-game";
+        public const string GameQuestions = "game-questions";
+        public const string NextQuestion = "next-question";
+        public const string CloseQuestion = "close-question";
+        public const string ParticipantAnswer = "participant-answer";
+        public const string GameParticipantState = "game-participant-state";
     }
     
    

@@ -1,21 +1,38 @@
 using MediatR;
 using System.Text.Json;
+using KafkaTriviaApi.Application.Models;
 
 namespace KafkaTriviaApi.Application.Commands;
 
-public class FetchQuestions: IRequest
+public class FetchQuestions: IRequest<GameQuestions>
 {
-    private Guid GameId { get; set; }
+    public Guid GameId { get; set; }
 }
 
-public class FetchQuestionsHandler(IHttpClientFactory httpClientFactory): IRequestHandler<FetchQuestions>
+public class FetchQuestionsHandler(IHttpClientFactory httpClientFactory): IRequestHandler<FetchQuestions, GameQuestions>
 {
-    public async Task Handle(FetchQuestions request, CancellationToken cancellationToken)
+
+    public async Task<GameQuestions> Handle(FetchQuestions request, CancellationToken cancellationToken)
     {
         var client = httpClientFactory.CreateClient();
         var response = await client.GetAsync("https://the-trivia-api.com/v2/questions?limit=10");
         var apiQuestions =  JsonSerializer.Deserialize<IList<ApiQuestion>>(await response.Content.ReadAsStringAsync(cancellationToken));
-        // TODO - push questions to state
+        
+        Random rnd = new Random();
+        int questionNumber = 0;
+        IList<GameQuestion> gameQuestions = apiQuestions.Select(q =>
+        {
+            int correctAnswerIndex = rnd.Next(3);
+            var answers = q.incorrectAnswers;
+            answers.Insert(correctAnswerIndex, q.correctAnswer!);
+            return new GameQuestion(
+                ++questionNumber,
+                q!.question!.text!,
+                answers,
+                correctAnswerIndex
+            );
+        }).ToList();
+        return new GameQuestions(GameId: request.GameId, Questions: gameQuestions);
     }
 }
 

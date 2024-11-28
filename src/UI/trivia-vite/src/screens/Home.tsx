@@ -16,11 +16,18 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import { useGameStore } from '../store/GameStore'
+import { useState } from "react"
  
 export function Home() {
 
   const newOrJoinState = useGameStore(s => s.newOrJoinState);
   const checkGame = useGameStore(s => s.checkGame);
+  const joinGame = useGameStore(s => s.joinGame);
+  const newGame = useGameStore(s => s.newGame);
+
+  const [displayName, setDisplayName] = useState('');
+  const [email, setEmail] = useState('');
+
   return (
     <>
     <h1>Fast Trivia</h1>
@@ -46,15 +53,18 @@ export function Home() {
             </div>
             <div className="space-y-1">
               <Label htmlFor="name">Display Name</Label>
-              <Input id="name" defaultValue="" />
+              <Input id="name" value={displayName} onChange={e => setDisplayName(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue="" />
+              <Input id="email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
             </div>
           </CardContent>
           <CardFooter>
-            <Button disabled={!newOrJoinState.isAvailable}>Join Game</Button>
+            <Button 
+              disabled={!newOrJoinState.isAvailable}
+              onClick={() => joinGame(newOrJoinState.name, displayName, email)}
+            >Join Game</Button>
           </CardFooter>
         </Card>
       </TabsContent>
@@ -73,7 +83,10 @@ export function Home() {
             </div>      
           </CardContent>
           <CardFooter>
-            <Button disabled={!newOrJoinState.isAvailable}>Create Game</Button>
+            <Button 
+              disabled={!newOrJoinState.isAvailable} 
+              onClick={() => newGame(newOrJoinState.name) }
+            >Create Game</Button>
           </CardFooter>
         </Card>
       </TabsContent>

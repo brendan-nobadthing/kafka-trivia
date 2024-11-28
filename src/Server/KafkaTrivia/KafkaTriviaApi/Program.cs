@@ -30,6 +30,7 @@ builder.Services
     .AddGraphQLServer()
     .AddQueryType<Query>()
     .AddSubscriptionType<Subscription>()
+    .AddMutationType<Mutation>()
     .AddInMemorySubscriptions();
 
 builder.Services.AddCors(c => c.AddDefaultPolicy(corsPolicyBuilder =>

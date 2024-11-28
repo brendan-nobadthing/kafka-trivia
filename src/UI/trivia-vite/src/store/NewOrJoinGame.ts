@@ -1,13 +1,7 @@
 import { StateCreator } from 'zustand'
 import { GameSlice } from './UserGameState'
 import { ApolloClient, InMemoryCache } from '@apollo/client'
-//import { gql } from '../graphql/gql'
-import { GET_GAME_BY_NAME } from '@/graphql/queries/GetGameByName'
-
-const apolloClient = new ApolloClient({
-    uri: "https://localhost:7062/graphql",
-    cache: new InMemoryCache()
-})
+import { gql } from "@apollo/client";
 
 
 
@@ -31,6 +25,7 @@ export const createNewOrJoinGameSlice: StateCreator<GameSlice & NewOrJoinGameSli
         error: null
     },
     checkGame: async (name: string, isNewGame: boolean) => {
+        console.log('CHECK GAME', name);
         if (name.length < 3) {
             set((state: NewOrJoinGameSlice) => {
                 state.newOrJoinState.name = name;
@@ -41,9 +36,11 @@ export const createNewOrJoinGameSlice: StateCreator<GameSlice & NewOrJoinGameSli
         }
         const result = await apolloClient.query({
                 query: GET_GAME_BY_NAME ,
-                variables: { name: name }
+                variables: { name: name },
+                errorPolicy: 'all'
+                
         });
-        //console.log("CHECK RESULT", result);
+        console.log("CHECK RESULT", result);
         
         set((state: NewOrJoinGameSlice) => { 
             state.newOrJoinState.name = name;
@@ -56,3 +53,21 @@ export const createNewOrJoinGameSlice: StateCreator<GameSlice & NewOrJoinGameSli
         });
     }
 });
+
+
+
+const apolloClient = new ApolloClient({
+    uri: "https://localhost:7062/graphql",
+    cache: new InMemoryCache()
+});
+
+
+const GET_GAME_BY_NAME = gql`
+  query getGameByName($name: String!) {
+    gameByName(gameName: $name) {
+        currentQuestionNumber
+        gameId
+        timestampUtc
+    }
+  }
+`

@@ -70,15 +70,13 @@ public static class Endpoints
                 [FromBody] AddParticipant cmd,
                 [FromServices] IMediator mediator) =>
             {
-                var participantId = Guid.NewGuid();
-                await mediator.Send(new AddParticipant()
+                var result = await mediator.Send(new AddParticipant()
                 {
                     Name = cmd.Name, 
                     GameName = cmd.GameName,
-                    Email = cmd.Email,
-                    ParticipantId = participantId
+                    Email = cmd.Email
                 });
-                return Results.Created($"/api/game/participant/{participantId}", participantId);
+                return Results.Json(result);
             })
             .WithName("AddParticipant")
             .WithOpenApi();

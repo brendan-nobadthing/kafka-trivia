@@ -1,5 +1,6 @@
 
 using Confluent.Kafka;
+using KafkaTriviaApi.Application.Commands;
 using KafkaTriviaApi.Application.Models;
 using KafkaTriviaApi.KafkaStreams;
 
@@ -12,6 +13,10 @@ public static class ServiceCollectionExtensions
     {
         services.AddKafkaProducer<Game>(KafkaStreamService.TopicNames.GameState); 
         services.AddKafkaProducer<GameParticipant>(KafkaStreamService.TopicNames.AddParticipant); 
+        services.AddKafkaProducer<StartGame>(KafkaStreamService.TopicNames.StartGame);
+        services.AddKafkaProducer<NextQuestion>(KafkaStreamService.TopicNames.NextQuestion);
+        services.AddKafkaProducer<CloseQuestion>(KafkaStreamService.TopicNames.CloseQuestion);
+        
     }
 
 

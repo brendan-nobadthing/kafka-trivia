@@ -10,11 +10,10 @@ public record Game(
 
 public enum GameState
 {
-    LobbyOpen,
-    QuestionsRequested,
-    QuestionOpen,
-    QuestionResult,
-    Finished
+    LobbyOpen = 1,
+    QuestionOpen = 3,
+    QuestionResult = 4,
+    Finished = 5
 }
     
     

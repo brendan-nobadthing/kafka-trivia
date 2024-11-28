@@ -4,5 +4,6 @@ public record GameParticipant(
     Guid GameId,
     Guid ParticipantId,
     string Name,
-    string GravatarCode
+    string GravatarCode, 
+    bool IsOwner = false
     );
