@@ -40,7 +40,7 @@ public class KafkaInit(ProducerConfig producerConfig)
             await adminClient.CreateTopicsAsync(topics.Select(t => new TopicSpecification()
             {
                 Name = t.ToLower(),
-                NumPartitions = 3
+                NumPartitions = 1
             }));
                
         }

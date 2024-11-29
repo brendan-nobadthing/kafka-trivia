@@ -1,11 +1,9 @@
-using System.Reflection;
 using HotChocolate.Subscriptions;
 using KafkaTriviaApi.Application.Commands;
 using KafkaTriviaApi.Application.Models;
 using MediatR;
 using Serilog;
 using Streamiz.Kafka.Net;
-using Streamiz.Kafka.Net.Crosscutting;
 using Streamiz.Kafka.Net.SerDes;
 using Streamiz.Kafka.Net.Stream;
 using Streamiz.Kafka.Net.Table;
@@ -32,7 +30,7 @@ public static class StreamBuilders
         // add some logging
         gameStateTable
             .ToStream()
-            .Peek((k, v) => Log.Information("** Game State {@key}, {@Game}", k, v));
+            .Peek((k, v) => Log.Information("** Game State Table {@key}, {@Game}", k, v));
         
         gameParticipantsTable
             .ToStream()
@@ -102,6 +100,8 @@ public static class StreamBuilders
                 },
                 InMemory.As<string,List<GameParticipant>>(KafkaStreamService.TopicNames.GameParticipantsTable).WithValueSerdes<JsonSerDes<List<GameParticipant>>>()
             );
+        
+        
         return result;
     }
     
@@ -114,15 +114,15 @@ public static class StreamBuilders
                 KafkaStreamService.TopicNames.StartGame,
                 new StringSerDes(),
                 new JsonSerDes<StartGame>())
-            .Peek((k, v) => Log.Information("* Start Game {@GameId}", k));
+            .Peek((k, v) => Log.Information("* Handling Start Game {@GameId}", k));
             
             
         var questionsStream = stream.MapValuesAsync<GameQuestions>(
             async (kv, ctx) => 
                 await mediator.Send(new FetchQuestions() { GameId = kv.Value.GameId }),
-            RetryPolicy.NewBuilder().NumberOfRetry(5).Build(),
-            new RequestSerDes<string, StartGame>(new StringSerDes(), new JsonSerDes<StartGame>()),
-            new ResponseSerDes<string, GameQuestions>(new StringSerDes(), new JsonSerDes<GameQuestions>())
+                    RetryPolicy.NewBuilder().NumberOfRetry(5).Build(),
+                    new RequestSerDes<string, StartGame>(new StringSerDes(), new JsonSerDes<StartGame>()),
+                    new ResponseSerDes<string, GameQuestions>(new StringSerDes(), new JsonSerDes<GameQuestions>())
             )
             .Peek((k, v) => Log.Information("* Got Questions {@Questions}", v));
         
@@ -130,9 +130,9 @@ public static class StreamBuilders
         questionsStream.To(KafkaStreamService.TopicNames.GameQuestions, new StringSerDes(), new JsonSerDes<GameQuestions>());
         
         // Send NextQuestion command
-        stream.MapValues<NextQuestion>(
+        questionsStream.MapValues<NextQuestion>(
                 v => new NextQuestion(){GameId = v.GameId})
-            .Peek((k,v) => Log.Information("* Got NextQuestion {@NextQuestion}", v))
+            .Peek((k,v) => Log.Information("* Sending NextQuestion {@NextQuestion}", v))
             .To(KafkaStreamService.TopicNames.NextQuestion, new StringSerDes(), new JsonSerDes<NextQuestion>());
     }
 
@@ -146,14 +146,22 @@ public static class StreamBuilders
     // handle NextQuestionCommand. push update to core game state. Schedule the CloseQuestion command
     public static void HandleNextQuestion(this StreamBuilder builder, IKTable<string, Game> gameStateTable)
     {
-        // var nextQuestionStream = builder.Stream<string, NextQuestion>(
-        //     KafkaStreamService.TopicNames.NextQuestion,
-        //     new StringSerDes(),
-        //     new JsonSerDes<NextQuestion>());
-        //
-        // nextQuestionStream.Join(gameStateTable,
-        //     (nextQuestion, game) => game with { CurrentQuestionNumber = game.CurrentQuestionNumber + 1 })
-        //     .To(KafkaStreamService.TopicNames.GameState);
+        var nextQuestionStream = builder.Stream<string, NextQuestion>(
+            KafkaStreamService.TopicNames.NextQuestion,
+            new StringSerDes(),
+            new JsonSerDes<NextQuestion>())
+            .Peek((k,v) => Log.Information("* Handle NextQuestion {@key}, {@NextQuestion}", k, v));
+
+        nextQuestionStream.LeftJoin(gameStateTable, (nextQuestion, game) =>
+        {
+            Log.Information("* Next question lookup game {@NextQuestion} {@Game}", nextQuestion, game);
+            return game with
+            {
+                CurrentQuestionNumber = game.CurrentQuestionNumber??0 + 1,
+                GameState = GameState.QuestionOpen
+            };
+        }).To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
+        
         //     
         //
         // nextQuestionStream.MapValuesAsync<CloseQuestion>(async (kv, ctx) =>
@@ -177,13 +185,17 @@ public static class StreamBuilders
         IKTable<string, GameQuestions> gameQuestionsTable)
     {
         var activeGameStream = gameStateStream
+                .Peek((k,v) => Log.Information("* Game Change"))
             // filter to active games only
-            .Filter((k, v) => v.GameState != GameState.LobbyOpen && v.GameState != GameState.Finished);
+            .Filter((k, v) => v.GameState != GameState.LobbyOpen && v.GameState != GameState.Finished)
+            .Peek((k,v) => Log.Information("* Active Game Change"));
 
             var joined = activeGameStream
                 .LeftJoin(gameQuestionsTable, (game, questions) => new { Game = game, Questions = questions })
-                .LeftJoin(gameParticipantsTable, (prevJoin, participants) => new { prevJoin.Game, prevJoin.Questions, participants });
+                .LeftJoin(gameParticipantsTable, (prevJoin, participants) => new { prevJoin.Game, prevJoin.Questions, participants })
+                .Peek((k, v) => Log.Information("*building Game Participant State {@key} {@data}", k, v));
 
+            
             var participantStates = joined.FlatMap<string, GameParticipantState>((k, v) =>
             {
                 var question = v.Questions.Questions[v.Game.CurrentQuestionNumber ?? 0 - 1];
@@ -200,7 +212,7 @@ public static class StreamBuilders
 
                 return results;
             });
-            participantStates.To(KafkaStreamService.TopicNames.GameParticipantState);
+            participantStates.To(KafkaStreamService.TopicNames.GameParticipantState, new StringSerDes(), new JsonSerDes<GameParticipantState>());
 
             return builder.Table<string, GameParticipantState>(
                 KafkaStreamService.TopicNames.GameParticipantState,

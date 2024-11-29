@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Confluent.Kafka;
+using Serilog;
 
 namespace KafkaTriviaApi.KafkaProducer;
 
@@ -11,6 +12,7 @@ public class KafkaMessageSender<T>(ProducerConfig producerConfig, string topicNa
     public async Task Send(string key, T message, CancellationToken cancellationToken = default)
     {
         var msgText = JsonSerializer.Serialize(message);
+        Log.Information("Sending {@Type} {@key} to topic {@Topic}", message.GetType().Name, key, topicName);
         await _producer.ProduceAsync(topicName, new Message<string, string> { Key = key, Value = msgText }, cancellationToken);
     }
 

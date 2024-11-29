@@ -1,7 +1,7 @@
 import { useGameStore } from '../store/GameStore'
 import { gql, useSubscription } from "@apollo/client";
 import { subscriptionClient } from "@/store/UserGameState";
-import { GameState } from "@/graphql/generated/graphql";
+import { GameParticipantState, GameState } from "@/graphql/generated/graphql";
 import { QuestionOpen } from './QuestionOpen';
 import { QuestionResult } from './QuestionResult';
 import { Lobby } from './Lobby';
@@ -47,11 +47,11 @@ subscription GameParticipantStateChanged($participantId:UUID!) {
 }
 `
 
-
  
 export function Game() {
 
     const userGameState = useGameStore(s => s.gameParticipantState)
+    const updateGameState = useGameStore(s => s.update)
 
 
     // subscribe to gameParticipantState graphql and push to state   
@@ -60,7 +60,9 @@ export function Game() {
       client: subscriptionClient,
       errorPolicy: 'all',
       onData({ data }) {
-        console.log('GAME PARTICIPANT STATE', data);
+        var newState: GameParticipantState =  data.data.gameParticipantStateChanged;
+        console.log('GAME PARTICIPANT STATE', newState);
+        updateGameState(newState);
       }
     });
 
@@ -74,7 +76,7 @@ export function Game() {
           if (userGameState.game.gameState == GameState.QuestionResult) return (<QuestionResult/>)
         })()
       }
-    
+     {userGameState.participant.participantId}
     </>
      
   )

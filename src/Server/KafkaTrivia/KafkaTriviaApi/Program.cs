@@ -18,7 +18,9 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddHttpClient();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
-builder.Services.AddSingleton(builder.Configuration.GetSection("producer").Get<ProducerConfig>()!);
+var producerConfig = builder.Configuration.GetSection("producer").Get<ProducerConfig>()!;
+producerConfig.LingerMs = 2;
+builder.Services.AddSingleton(producerConfig);
 builder.Services.AddKafkaProducers();
 
 
@@ -31,7 +33,8 @@ builder.Services
     .AddQueryType<Query>()
     .AddSubscriptionType<Subscription>()
     .AddMutationType<Mutation>()
-    .AddInMemorySubscriptions();
+    .AddInMemorySubscriptions()
+    .InitializeOnStartup();
 
 builder.Services.AddCors(c => c.AddDefaultPolicy(corsPolicyBuilder =>
 {

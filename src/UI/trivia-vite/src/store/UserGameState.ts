@@ -10,7 +10,8 @@ export interface GameSlice {
    gameParticipantState: GameParticipantState
    newGame : (name: string) => void,
    joinGame : (gameName: string, diaplayName: string, email: string) => void,
-   startGame: (gameId: string) => void
+   startGame: (gameId: string) => void,
+   update: (newState: GameParticipantState) => void
 }
 
 export const createGameSlice: StateCreator<GameSlice & NewOrJoinGameSlice,[["zustand/immer", never], never],[],GameSlice> = (set) => ({
@@ -85,6 +86,13 @@ export const createGameSlice: StateCreator<GameSlice & NewOrJoinGameSlice,[["zus
             state.gameParticipantState.game.gameState = GameState.QuestionOpen;
         });
     },
+
+    update: (newState: GameParticipantState) => {
+      console.log('UPDATE STATE');
+      set((state: GameSlice) => {
+        state.gameParticipantState = newState;
+      });
+    }
 
 });
 

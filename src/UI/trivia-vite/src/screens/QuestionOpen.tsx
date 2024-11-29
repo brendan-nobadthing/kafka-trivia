@@ -19,6 +19,8 @@ export function QuestionOpen() {
     const userGameState = useGameStore(s => s.gameParticipantState)
     let answerIndex=0;
 
+    if (!userGameState.currentQuestion) return (<><h1>Starting...</h1></>)
+
   return (
     <>
     <h1>Question {userGameState.game.currentQuestionNumber}</h1>
