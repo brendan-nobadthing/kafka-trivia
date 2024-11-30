@@ -33,7 +33,7 @@ export function QuestionOpen() {
           </CardHeader>
           <CardContent className="space-y-2">
          
-          <RadioGroup.Root>
+          <RadioGroup.Root className="flex space-x-2">
             { userGameState.answers.map(a => <>
               <RadioGroup.Item value={''+answerIndex++}>{a}</RadioGroup.Item>
             </>) }

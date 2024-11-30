@@ -53,7 +53,8 @@ public class KafkaStreamService(ITopicEventSender gqlSender, IMediator mediator)
         public const string GameQuestions = "game-questions";
         public const string NextQuestion = "next-question";
         public const string CloseQuestion = "close-question";
-        public const string ParticipantAnswer = "participant-answer";
+        public const string AnswerQuestion = "answer-question";
+        public const string AnswersByQuestionTable = "answers-by-question-table";
         public const string GameParticipantState = "game-participant-state";
     }
     

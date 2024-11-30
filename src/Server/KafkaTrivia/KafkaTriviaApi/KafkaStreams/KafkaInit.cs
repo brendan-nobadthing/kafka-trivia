@@ -24,7 +24,7 @@ public class KafkaInit(ProducerConfig producerConfig)
                 KafkaStreamService.TopicNames.GameQuestions, 
                 KafkaStreamService.TopicNames.NextQuestion, 
                 KafkaStreamService.TopicNames.CloseQuestion,
-                KafkaStreamService.TopicNames.ParticipantAnswer,
+                KafkaStreamService.TopicNames.AnswerQuestion,
                 KafkaStreamService.TopicNames.GameParticipantState
             };
 

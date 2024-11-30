@@ -15,6 +15,7 @@ public static class ServiceCollectionExtensions
         services.AddKafkaProducer<GameParticipant>(KafkaStreamService.TopicNames.AddParticipant); 
         services.AddKafkaProducer<StartGame>(KafkaStreamService.TopicNames.StartGame);
         services.AddKafkaProducer<NextQuestion>(KafkaStreamService.TopicNames.NextQuestion);
+        services.AddKafkaProducer<AnswerQuestion>(KafkaStreamService.TopicNames.AnswerQuestion);
         services.AddKafkaProducer<CloseQuestion>(KafkaStreamService.TopicNames.CloseQuestion);
         
     }

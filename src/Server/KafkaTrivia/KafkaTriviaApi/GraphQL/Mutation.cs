@@ -41,6 +41,14 @@ public class Mutation
         await mediator.Send(new StartGame(){GameId = gameId});
         return new StartGameResponse(){GameId = gameId};
     }
+    
+    
+    [UseMutationConvention]
+    public async Task AnswerQuestion([Service] IMediator mediator, AnswerQuestion answer)
+    {
+        await mediator.Send(answer);
+    }
+    
 }
 
 public class StartGameResponse

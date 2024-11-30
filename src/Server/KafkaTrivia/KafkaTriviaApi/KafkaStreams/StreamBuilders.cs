@@ -7,6 +7,7 @@ using Streamiz.Kafka.Net;
 using Streamiz.Kafka.Net.SerDes;
 using Streamiz.Kafka.Net.Stream;
 using Streamiz.Kafka.Net.Table;
+using Path = HotChocolate.Path;
 
 namespace KafkaTriviaApi.KafkaStreams;
 
@@ -26,6 +27,7 @@ public static class StreamBuilders
         var questionsTable = builder.GameQuestionsTable();
         builder.HandleNextQuestion(gameStateTable);
         var gameParticipantStateTable = builder.GameParticipantState(gameState, gameParticipantsTable, questionsTable);
+        var answersByQuestionTable = builder.AnswersByQuestionTable();
         
         // add some logging
         gameStateTable
@@ -218,6 +220,43 @@ public static class StreamBuilders
                 KafkaStreamService.TopicNames.GameParticipantState,
                 new StringSerDes(), new JsonSerDes<GameParticipantState>());
     }
-    
-   
+
+
+
+    public static IKTable<string, List<AnswerQuestion>> AnswersByQuestionTable(this StreamBuilder builder)
+    {
+        var answersByQuestionTable =  builder.Stream<string, AnswerQuestion>(
+            KafkaStreamService.TopicNames.AnswerQuestion,
+            new StringSerDes(),
+            new JsonSerDes<AnswerQuestion>())
+            .GroupBy((k, v) => $"{k}:{v.QuestionNumber}") // composite key to identify question under a game
+            .Aggregate(
+                () => new List<AnswerQuestion>(),
+                (k, v, old) =>
+                {
+                    old.Add(v);
+                    return old;
+                },
+                InMemory.As<string,List<AnswerQuestion>>(KafkaStreamService.TopicNames.AnswersByQuestionTable).WithValueSerdes<JsonSerDes<List<AnswerQuestion>>>()
+            );
+        return answersByQuestionTable;
+    }
+
+    public static void UpdateCurrentAnswerStats(this StreamBuilder builder, 
+        IKTable<string, List<AnswerQuestion>> answersByQuestionTable, 
+        IKTable<string, List<GameParticipants>> gameParticipantsTable,
+        IKTable<string, Game> gameStateTable)
+    {
+        answersByQuestionTable
+            .ToStream()
+            .Map((k, v) => KeyValuePair.Create(v.FirstOrDefault()!.GameId.ToString(), v)) // extract gameId as key for joining
+            .Join(gameParticipantsTable, (answers, participants) => new { Answers = answers, Participants = participants })
+            .Join(gameStateTable, (prevJoin, game) => new { Game = game, Participants = prevJoin.Participants, Answers = prevJoin.Answers })
+            
+            .MapValues(v => v.Game with { CurrentQuestionStats = $"{v.Answers.Count} of {v.Participants.Count}"})
+            .To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
+
+    }
+
+
 }
