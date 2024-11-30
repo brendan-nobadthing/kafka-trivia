@@ -19,8 +19,11 @@ public class KafkaStreamService(ITopicEventSender gqlSender, IMediator mediator)
         var config = new StreamConfig<StringSerDes, StringSerDes>();
         config.ApplicationId = "kafka-trivia";
         config.BootstrapServers = "localhost:9092";
-        config.LingerMs = 5;
-
+        config.LingerMs = 0;
+        config.FetchWaitMaxMs = 10;
+        config.CommitIntervalMs = 10;
+        //config.TopicMetadataRefreshIntervalMs = 1000;
+        
         StreamBuilder builder = new StreamBuilder();
         builder.BuildApplicationStreams(gqlSender, mediator);
         

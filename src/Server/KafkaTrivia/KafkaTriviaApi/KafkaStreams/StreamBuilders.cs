@@ -1,3 +1,4 @@
+using System.Globalization;
 using HotChocolate.Subscriptions;
 using KafkaTriviaApi.Application.Commands;
 using KafkaTriviaApi.Application.Models;
@@ -28,6 +29,7 @@ public static class StreamBuilders
         builder.HandleNextQuestion(gameStateTable);
         var gameParticipantStateTable = builder.GameParticipantState(gameState, gameParticipantsTable, questionsTable);
         var answersByQuestionTable = builder.AnswersByQuestionTable();
+        builder.UpdateCurrentAnswerStats(answersByQuestionTable, gameParticipantsTable, gameStateTable);
         
         // add some logging
         gameStateTable
@@ -229,6 +231,7 @@ public static class StreamBuilders
             KafkaStreamService.TopicNames.AnswerQuestion,
             new StringSerDes(),
             new JsonSerDes<AnswerQuestion>())
+            .Peek((k,v) => Log.Information("* Handling Answer {@Answer}", v))
             .GroupBy((k, v) => $"{k}:{v.QuestionNumber}") // composite key to identify question under a game
             .Aggregate(
                 () => new List<AnswerQuestion>(),
@@ -244,16 +247,26 @@ public static class StreamBuilders
 
     public static void UpdateCurrentAnswerStats(this StreamBuilder builder, 
         IKTable<string, List<AnswerQuestion>> answersByQuestionTable, 
-        IKTable<string, List<GameParticipants>> gameParticipantsTable,
+        IKTable<string, List<GameParticipant>> gameParticipantsTable,
         IKTable<string, Game> gameStateTable)
     {
-        answersByQuestionTable
+        var answersStream = answersByQuestionTable
             .ToStream()
-            .Map((k, v) => KeyValuePair.Create(v.FirstOrDefault()!.GameId.ToString(), v)) // extract gameId as key for joining
-            .Join(gameParticipantsTable, (answers, participants) => new { Answers = answers, Participants = participants })
-            .Join(gameStateTable, (prevJoin, game) => new { Game = game, Participants = prevJoin.Participants, Answers = prevJoin.Answers })
-            
+            .Peek((k, v) => Log.Information("* Answer -> Stats {@key} {@Answer}", k, v))
+            .Map((k, v) =>
+                KeyValuePair.Create(v.FirstOrDefault()!.GameId.ToString(), v)); // extract gameId as key for joining
+        
+        var joined = answersStream
+            .LeftJoin(
+                gameStateTable, 
+                (answers, game) => new { Game = game, Answers = answers }, 
+                new StreamTableJoinProps<string, List<AnswerQuestion>, Game>(new StringSerDes(), new JsonSerDes<List<AnswerQuestion>>(), new JsonSerDes<Game>()))
+            .LeftJoin(gameParticipantsTable, (prevJoin, participants) => new { Answers = prevJoin.Answers, Game = prevJoin.Game, Participants = participants })
+            .Peek((k,v) => Log.Information("Update Stats Joined Data {@JoinedData}", v));
+
+        joined
             .MapValues(v => v.Game with { CurrentQuestionStats = $"{v.Answers.Count} of {v.Participants.Count}"})
+            .Peek((k,v) => Log.Information("Answer -> stats Updating Game {@Game}", v))
             .To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
 
     }

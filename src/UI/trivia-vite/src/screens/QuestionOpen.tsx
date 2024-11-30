@@ -17,7 +17,7 @@ import { subscriptionClient } from "@/store/UserGameState";
 export function QuestionOpen() {
 
     const userGameState = useGameStore(s => s.gameParticipantState)
-    let answerIndex=0;
+    const answerQuestion = useGameStore(s => s.answerQuestion)
 
     if (!userGameState.currentQuestion) return (<><h1>Starting...</h1></>)
 
@@ -33,15 +33,20 @@ export function QuestionOpen() {
           </CardHeader>
           <CardContent className="space-y-2">
          
-          <RadioGroup.Root className="flex space-x-2">
-            { userGameState.answers.map(a => <>
-              <RadioGroup.Item value={''+answerIndex++}>{a}</RadioGroup.Item>
+          <RadioGroup.Root className="flex space-x-2" onValueChange={ (v) => answerQuestion( { 
+                answerIndex: parseInt(v), 
+                gameId: userGameState.game.gameId, 
+                participantId: userGameState.participant.participantId, 
+                questionNumber: userGameState.game.currentQuestionNumber! 
+              }) } >
+            { userGameState.answers.map((a,i) => <>
+              <RadioGroup.Item value={''+i}>{a}</RadioGroup.Item>
             </>) }
             </RadioGroup.Root>
 
           </CardContent>
           <CardFooter>
-            
+            { userGameState.game?.currentQuestionStats && `${userGameState.game?.currentQuestionStats} Answers Received` }
           </CardFooter>
         </Card>
      

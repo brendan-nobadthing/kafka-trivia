@@ -3,7 +3,7 @@ import { NewOrJoinGameSlice } from './NewOrJoinGame'
 import { ApolloClient, gql, InMemoryCache } from '@apollo/client'
 import { GraphQLWsLink } from '@apollo/client/link/subscriptions';
 import { createClient } from 'graphql-ws';
-import { GameParticipant, GameParticipantState, GameState } from '@/graphql/generated/graphql';
+import { AnswerQuestionInput, GameParticipant, GameParticipantState, GameState } from '@/graphql/generated/graphql';
 
 
 export interface GameSlice {
@@ -11,7 +11,8 @@ export interface GameSlice {
    newGame : (name: string) => void,
    joinGame : (gameName: string, diaplayName: string, email: string) => void,
    startGame: (gameId: string) => void,
-   update: (newState: GameParticipantState) => void
+   update: (newState: GameParticipantState) => void,
+   answerQuestion: (answer: AnswerQuestionInput) => void
 }
 
 export const createGameSlice: StateCreator<GameSlice & NewOrJoinGameSlice,[["zustand/immer", never], never],[],GameSlice> = (set) => ({
@@ -73,7 +74,6 @@ export const createGameSlice: StateCreator<GameSlice & NewOrJoinGameSlice,[["zus
         });
     },
 
-    // might not need to be a state method
     startGame: async (gameId: string) => {
         console.log('START GAME');
         const result = await apolloClient.mutate({
@@ -82,7 +82,7 @@ export const createGameSlice: StateCreator<GameSlice & NewOrJoinGameSlice,[["zus
         });
         console.log('START GAME RESULT', result);
         set((state: GameSlice) => {
-            // just bump the state here. 
+            // just bump the state here to move to next screen. subscription will start soon
             state.gameParticipantState.game.gameState = GameState.QuestionOpen;
         });
     },
@@ -92,6 +92,16 @@ export const createGameSlice: StateCreator<GameSlice & NewOrJoinGameSlice,[["zus
       set((state: GameSlice) => {
         state.gameParticipantState = newState;
       });
+    }, 
+
+    answerQuestion: async (answer: AnswerQuestionInput) => {
+      console.log('ANSWER QUESTION', answer);
+      const result = await apolloClient.mutate({
+        mutation: ANSWER_QUESTION,
+        variables: { answer: answer }  
+      });
+      console.log('ANSWER QUESTION RESULT', result.data);
+      // no state update needed here - will come from participantGameState subscription
     }
 
 });
@@ -128,6 +138,21 @@ mutation startGame($gameId: UUID!) {
   }
 }
 `
+
+const ANSWER_QUESTION = gql`
+mutation AnswerQuestion (
+  $answer: AnswerQuestionInput!
+) {
+  answerQuestion(
+    answer: $answer
+  ) {
+    isSuccessful
+  }
+}
+`
+
+
+
 
 export const apolloClient = new ApolloClient({
     uri: "https://localhost:7062/graphql",

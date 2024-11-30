@@ -6,7 +6,7 @@ using KafkaTriviaApi.Rest;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration()
-    .WriteTo.Console()
+    .WriteTo.Console(outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff} [{Level}] {Message}{NewLine}{Exception}")
     .CreateLogger();
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,7 +19,10 @@ builder.Services.AddHttpClient();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssemblyContaining<Program>());
 var producerConfig = builder.Configuration.GetSection("producer").Get<ProducerConfig>()!;
-producerConfig.LingerMs = 2;
+producerConfig.LingerMs = 0;
+producerConfig.BatchSize = 1;
+producerConfig.CompressionType = CompressionType.None;
+producerConfig.Acks = Acks.Leader;
 builder.Services.AddSingleton(producerConfig);
 builder.Services.AddKafkaProducers();
 

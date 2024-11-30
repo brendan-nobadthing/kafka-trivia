@@ -18,11 +18,26 @@ export type Scalars = {
   UUID: { input: any; output: any; }
 };
 
+export type AnswerQuestionInput = {
+  answerIndex: Scalars['Int']['input'];
+  gameId: Scalars['UUID']['input'];
+  participantId: Scalars['UUID']['input'];
+  questionNumber: Scalars['Int']['input'];
+};
+
+export type BoolResponse = {
+  __typename?: 'BoolResponse';
+  isSuccessful: Scalars['Boolean']['output'];
+  message: Scalars['String']['output'];
+};
+
 export type Game = {
   __typename?: 'Game';
   currentQuestionNumber?: Maybe<Scalars['Int']['output']>;
+  currentQuestionStats?: Maybe<Scalars['String']['output']>;
   gameId: Scalars['UUID']['output'];
   gameState: GameState;
+  gameStateTimestampUtc?: Maybe<Scalars['DateTime']['output']>;
   name: Scalars['String']['output'];
   timestampUtc: Scalars['DateTime']['output'];
 };
@@ -60,6 +75,7 @@ export enum GameState {
 export type Mutation = {
   __typename?: 'Mutation';
   addParticipant: GameParticipant;
+  answerQuestion: BoolResponse;
   newGame: GameParticipant;
   startGame: StartGameResponse;
 };
@@ -69,6 +85,11 @@ export type MutationAddParticipantArgs = {
   displayName: Scalars['String']['input'];
   email: Scalars['String']['input'];
   gameName: Scalars['String']['input'];
+};
+
+
+export type MutationAnswerQuestionArgs = {
+  answer: AnswerQuestionInput;
 };
 
 

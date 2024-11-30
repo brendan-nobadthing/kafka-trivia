@@ -43,10 +43,31 @@ public class Mutation
     }
     
     
+    
     [UseMutationConvention]
-    public async Task AnswerQuestion([Service] IMediator mediator, AnswerQuestion answer)
+    public async Task<BoolResponse> AnswerQuestion([Service] IMediator mediator, AnswerQuestion answer)
     {
-        await mediator.Send(answer);
+        try
+        {
+            await mediator.Send(answer);
+            return new BoolResponse()
+            {
+                IsSuccessful = true,
+                Message = ""
+            };
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, ex.Message);
+            return new BoolResponse()
+            {
+                IsSuccessful = false,
+                Message = "Unexpected Error"
+            };
+
+        }
+        
+        
     }
     
 }
@@ -54,4 +75,11 @@ public class Mutation
 public class StartGameResponse
 {
     public Guid GameId { get; set; }
+}
+
+
+public class BoolResponse
+{
+    public bool IsSuccessful { get; set; }
+    public string Message { get; set; }
 }

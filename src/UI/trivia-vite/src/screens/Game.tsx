@@ -35,6 +35,8 @@ subscription GameParticipantStateChanged($participantId:UUID!) {
       gameState
       name
       timestampUtc
+      gameStateTimestampUtc
+      currentQuestionStats
     }
     participant {
       gameId
