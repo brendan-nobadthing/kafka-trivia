@@ -19,7 +19,7 @@ export function QuestionResult() {
 
   return (
     <>
-    <h1>Question {userGameState.game.currentQuestionNumber}</h1>
+     <h1>Fast Trivia</h1>
         <Card>
           <CardHeader>
             <CardTitle>Question {userGameState.game.currentQuestionNumber}</CardTitle>

@@ -91,7 +91,7 @@ export function Home() {
         </Card>
       </TabsContent>
     </Tabs>
-    <div><pre>{JSON.stringify(newOrJoinState, null, 2) }</pre></div>
+    {/*<div><pre>{JSON.stringify(newOrJoinState, null, 2) }</pre></div>*/}
     </>
     
   )

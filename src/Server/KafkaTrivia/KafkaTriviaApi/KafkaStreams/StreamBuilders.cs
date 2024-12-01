@@ -30,6 +30,7 @@ public static class StreamBuilders
         var gameParticipantStateTable = builder.GameParticipantState(gameState, gameParticipantsTable, questionsTable);
         var answersByQuestionTable = builder.AnswersByQuestionTable();
         builder.UpdateCurrentAnswerStats(answersByQuestionTable, gameParticipantsTable, gameStateTable);
+        builder.CloseQuestion(gameStateTable);
         
         // add some logging
         gameStateTable
@@ -156,40 +157,47 @@ public static class StreamBuilders
             new JsonSerDes<NextQuestion>())
             .Peek((k,v) => Log.Information("* Handle NextQuestion {@key}, {@NextQuestion}", k, v));
 
-        nextQuestionStream.LeftJoin(gameStateTable, (nextQuestion, game) =>
-        {
-            Log.Information("* Next question lookup game {@NextQuestion} {@Game}", nextQuestion, game);
-            return game with
+        var gameAfterNextQuestionStream = nextQuestionStream
+            .LeftJoin(gameStateTable, (nextQuestion, game) =>
             {
-                CurrentQuestionNumber = game.CurrentQuestionNumber??0 + 1,
-                GameState = GameState.QuestionOpen
-            };
-        }).To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
+                Log.Information("* Next question lookup game {@NextQuestion} {@Game}", nextQuestion, game);
+                var isLastQuestion = game.CurrentQuestionNumber == 10;
+                return game with
+                {
+                    GameState = isLastQuestion ? GameState.Finished : GameState.QuestionOpen,
+                    CurrentQuestionNumber = isLastQuestion ? null : (game.CurrentQuestionNumber??0) + 1
+                };
+            })
+            .Peek((k,v) => Log.Information("* Game after next question {@key}, {@Game}", k, v));
+            
+        gameAfterNextQuestionStream.To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
         
-        //     
-        //
-        // nextQuestionStream.MapValuesAsync<CloseQuestion>(async (kv, ctx) =>
-        // {
-        //     await Task.Delay(10 * 1000);
-        //     return new CloseQuestion() { GameId = kv.Value.GameId };
-        // })
-        // .To(KafkaStreamService.TopicNames.CloseQuestion, new StringSerDes(), new JsonSerDes<CloseQuestion>());
+        gameAfterNextQuestionStream
+            .Filter((k,v) => v.GameState == GameState.QuestionOpen)
+            .MapValuesAsync<CloseQuestion>(async (kv, ctx) =>
+            {
+                await Task.Delay(10 * 1000);
+                return new CloseQuestion() { GameId = kv.Value.GameId };
+            },
+            RetryPolicy.NewBuilder().NumberOfRetry(5).Build(),
+            new RequestSerDes<string, Game>(new StringSerDes(), new JsonSerDes<Game>()),
+            new ResponseSerDes<string, CloseQuestion>(new StringSerDes(), new JsonSerDes<CloseQuestion>()))
+            .To(KafkaStreamService.TopicNames.CloseQuestion, new StringSerDes(), new JsonSerDes<CloseQuestion>());
     }
+
+
 
 
     /// <summary>
     /// when active game state changes, merge state into records for each participant 
     /// </summary>
-    /// <param name="builder"></param>
-    /// <param name="gameParticipantsTable"></param>
-    /// <param name="gameQuestionsTable"></param>
     public static IKTable<string, GameParticipantState> GameParticipantState(this StreamBuilder builder,
         IKStream<string, Game> gameStateStream, 
         IKTable<string, List<GameParticipant>> gameParticipantsTable,
         IKTable<string, GameQuestions> gameQuestionsTable)
     {
         var activeGameStream = gameStateStream
-                .Peek((k,v) => Log.Information("* Game Change"))
+                .Peek((k,v) => Log.Information("* Game Change {@GameState} {@CurrentQuestionsNumber}", v.GameState, v.CurrentQuestionNumber))
             // filter to active games only
             .Filter((k, v) => v.GameState != GameState.LobbyOpen && v.GameState != GameState.Finished)
             .Peek((k,v) => Log.Information("* Active Game Change"));
@@ -202,7 +210,11 @@ public static class StreamBuilders
             
             var participantStates = joined.FlatMap<string, GameParticipantState>((k, v) =>
             {
-                var question = v.Questions.Questions[v.Game.CurrentQuestionNumber ?? 0 - 1];
+                var isValidQuestionNumber = v.Game.CurrentQuestionNumber != null 
+                                            && v.Game.CurrentQuestionNumber >= 1
+                                            && v.Game.CurrentQuestionNumber <= v.Questions.Questions.Count;
+                var question = isValidQuestionNumber ? v.Questions.Questions[(v.Game.CurrentQuestionNumber??1)-1] : null;
+                
                 var results = new List<KeyValuePair<string, GameParticipantState>>();
                 foreach (var participant in v.participants)
                 {
@@ -210,8 +222,8 @@ public static class StreamBuilders
                         new GameParticipantState(
                             participant,
                             v.Game,
-                            question.QuestionText,
-                            question.Answers)));
+                            question?.QuestionText ?? "",
+                            question?.Answers ?? new List<string>())));
                 }
 
                 return results;
@@ -268,7 +280,29 @@ public static class StreamBuilders
             .MapValues(v => v.Game with { CurrentQuestionStats = $"{v.Answers.Count} of {v.Participants.Count}"})
             .Peek((k,v) => Log.Information("Answer -> stats Updating Game {@Game}", v))
             .To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
+    }
 
+    public static void CloseQuestion(this StreamBuilder builder, IKTable<string, Game> gameStateTable)
+    {
+        var closeQuestionStream = builder.Stream<string, CloseQuestion>(
+                KafkaStreamService.TopicNames.CloseQuestion,
+                new StringSerDes(), new JsonSerDes<CloseQuestion>())
+            .Peek((k, v) => Log.Information("Close Question {@Key}", v));
+        
+            closeQuestionStream.LeftJoin(gameStateTable, (closeQuestion, game) => game with { GameState = GameState.QuestionResult})
+            .To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
+            
+            closeQuestionStream
+                .MapValuesAsync<NextQuestion>(async (kv, ctx) =>
+                    {
+                        await Task.Delay(4 * 1000);
+                        return new NextQuestion() { GameId = kv.Value.GameId };
+                    },
+                    RetryPolicy.NewBuilder().NumberOfRetry(5).Build(),
+                    new RequestSerDes<string, CloseQuestion>(new StringSerDes(), new JsonSerDes<CloseQuestion>()),
+                    new ResponseSerDes<string, NextQuestion>(new StringSerDes(), new JsonSerDes<NextQuestion>()))
+                .To(KafkaStreamService.TopicNames.NextQuestion, new StringSerDes(), new JsonSerDes<NextQuestion>());
+        
     }
 
 

@@ -55,7 +55,6 @@ export function Game() {
     const userGameState = useGameStore(s => s.gameParticipantState)
     const updateGameState = useGameStore(s => s.update)
 
-
     // subscribe to gameParticipantState graphql and push to state   
     useSubscription (GAME_PARTICIPANT_STATE_CHANGED, {
       variables: { 'participantId': userGameState.participant.participantId  },

@@ -55,19 +55,18 @@ export function Lobby() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            gameid: { userGameState.game.name }<br/>
             <div><ul>{showParticipants}</ul></div>
            {/*  <div><pre>{JSON.stringify(data, null, 2) }</pre></div>*/}
 
           </CardContent>
           <CardFooter>
-            <Button 
-              disabled={!userGameState.participant.isOwner} 
-              onClick={() => startGame(userGameState.game.gameId)}
-              >Start Game</Button>
+            { userGameState.participant.isOwner 
+            ? <Button onClick={() => startGame(userGameState.game.gameId)}>Start Game</Button> 
+            : null  }
+          
           </CardFooter>
         </Card>
-        <div><pre>{JSON.stringify(userGameState, null, 2) }</pre></div>
+        {/*<div><pre>{JSON.stringify(userGameState, null, 2) }</pre></div>*/}
     </>
     
   )
