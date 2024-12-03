@@ -58,7 +58,10 @@ public class KafkaStreamService(ITopicEventSender gqlSender, IMediator mediator)
         public const string CloseQuestion = "close-question";
         public const string AnswerQuestion = "answer-question";
         public const string AnswersByQuestionTable = "answers-by-question-table";
+        public const string GameParticipantPartialState = "game-participant-partial-state";
         public const string GameParticipantState = "game-participant-state";
+        public const string GameParticipantAnswers = "game-participant-answers";
+        public const string GameParticipantAnswersTable = "game-participant-answers-table";
     }
     
    

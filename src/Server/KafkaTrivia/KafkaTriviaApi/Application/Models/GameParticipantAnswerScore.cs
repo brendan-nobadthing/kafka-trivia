@@ -4,4 +4,6 @@ public record GameParticipantAnswerScore(
     Guid GameId,
     Guid ParticipantId,
     int QuestionNumber,
-    int Score);
+    int? AnswerIndex,
+    int Score,
+    int CorrectAnswerIndex);

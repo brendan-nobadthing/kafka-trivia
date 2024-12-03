@@ -27,10 +27,10 @@ public static class StreamBuilders
         builder.StartGame(mediator);
         var questionsTable = builder.GameQuestionsTable();
         builder.HandleNextQuestion(gameStateTable);
-        var gameParticipantStateTable = builder.GameParticipantState(gameState, gameParticipantsTable, questionsTable);
         var answersByQuestionTable = builder.AnswersByQuestionTable();
         builder.UpdateCurrentAnswerStats(answersByQuestionTable, gameParticipantsTable, gameStateTable);
-        builder.CloseQuestion(gameStateTable);
+        var participantScoresTable = builder.CloseQuestionAndCalculateScores(gameStateTable, gameParticipantsTable, answersByQuestionTable, questionsTable);
+        var gameParticipantStateTable = builder.GameParticipantState(gameState, gameParticipantsTable, questionsTable, participantScoresTable);
         
         // add some logging
         gameStateTable
@@ -192,21 +192,20 @@ public static class StreamBuilders
     /// when active game state changes, merge state into records for each participant 
     /// </summary>
     public static IKTable<string, GameParticipantState> GameParticipantState(this StreamBuilder builder,
-        IKStream<string, Game> gameStateStream, 
+        IKStream<string, Game> gameStateStream,
         IKTable<string, List<GameParticipant>> gameParticipantsTable,
-        IKTable<string, GameQuestions> gameQuestionsTable)
+        IKTable<string, GameQuestions> gameQuestionsTable,
+        IKTable<string, List<GameParticipantAnswerScore>> participantScoresTable)
     {
-        var activeGameStream = gameStateStream
-                .Peek((k,v) => Log.Information("* Game Change {@GameState} {@CurrentQuestionsNumber}", v.GameState, v.CurrentQuestionNumber))
-            // filter to active games only
-            .Filter((k, v) => v.GameState != GameState.LobbyOpen && v.GameState != GameState.Finished)
-            .Peek((k,v) => Log.Information("* Active Game Change"));
-
-            var joined = activeGameStream
+        
+        var startedGameStream = gameStateStream
+            .Peek((k, v) => Log.Information("* Game Change {@GameState} {@CurrentQuestionsNumber}", v.GameState, v.CurrentQuestionNumber))
+            .Filter((k, v) => v.GameState != GameState.LobbyOpen);
+        
+            var joined = startedGameStream
                 .LeftJoin(gameQuestionsTable, (game, questions) => new { Game = game, Questions = questions })
                 .LeftJoin(gameParticipantsTable, (prevJoin, participants) => new { prevJoin.Game, prevJoin.Questions, participants })
                 .Peek((k, v) => Log.Information("*building Game Participant State {@key} {@data}", k, v));
-
             
             var participantStates = joined.FlatMap<string, GameParticipantState>((k, v) =>
             {
@@ -228,7 +227,11 @@ public static class StreamBuilders
 
                 return results;
             });
-            participantStates.To(KafkaStreamService.TopicNames.GameParticipantState, new StringSerDes(), new JsonSerDes<GameParticipantState>());
+            participantStates.To(KafkaStreamService.TopicNames.GameParticipantPartialState, new StringSerDes(), new JsonSerDes<GameParticipantState>());
+
+            builder.Stream(KafkaStreamService.TopicNames.GameParticipantPartialState, new StringSerDes(), new JsonSerDes<GameParticipantState>())
+                .LeftJoin(participantScoresTable, (gps, scores) => gps with { Scores = scores })
+                .To(KafkaStreamService.TopicNames.GameParticipantState, new StringSerDes(), new JsonSerDes<GameParticipantState>());
 
             return builder.Table<string, GameParticipantState>(
                 KafkaStreamService.TopicNames.GameParticipantState,
@@ -282,28 +285,118 @@ public static class StreamBuilders
             .To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
     }
 
-    public static void CloseQuestion(this StreamBuilder builder, IKTable<string, Game> gameStateTable)
+    public static IKTable<string, List<GameParticipantAnswerScore>> CloseQuestionAndCalculateScores(this StreamBuilder builder, 
+        IKTable<string, Game> gameStateTable, 
+        IKTable<string, List<GameParticipant>> gameParticipantsTable,
+        IKTable<string, List<AnswerQuestion>> answersByQuestionTable,
+        IKTable<string, GameQuestions> gameQuestionsTable)
     {
         var closeQuestionStream = builder.Stream<string, CloseQuestion>(
                 KafkaStreamService.TopicNames.CloseQuestion,
                 new StringSerDes(), new JsonSerDes<CloseQuestion>())
             .Peek((k, v) => Log.Information("Close Question {@Key}", v));
         
-            closeQuestionStream.LeftJoin(gameStateTable, (closeQuestion, game) => game with { GameState = GameState.QuestionResult})
-            .To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
+        // Calculate Scores, save to table by participant ID
+        closeQuestionStream
+            .LeftJoin(gameStateTable, (closeQuestion, game) => game)
+            .Peek((k,v) => Log.Information("Score Join 1 {@Value}", v))
+            .LeftJoin(gameParticipantsTable, (game, participants) => new { Game = game, Participants = participants })
+            .Peek((k,v) => Log.Information("Score Join 2 {@Value}", v))
+            .LeftJoin(gameQuestionsTable, (prevJoin, questions) => new GameParticipantsQuestions(prevJoin.Game, prevJoin.Participants, questions))
             
-            closeQuestionStream
-                .MapValuesAsync<NextQuestion>(async (kv, ctx) =>
+            .Peek((k,v) => Log.Information("Score Join 3 {@Value}", v))
+            .Map((k, v) =>  KeyValuePair.Create(key: $"{v.Game.GameId}:{v.Game.CurrentQuestionNumber}", value: v)) // build the composite key required to join with answersByQuestionTable
+            .Peek((k,v) => Log.Information("After Key Map {@value}", v))
+            .LeftJoin(answersByQuestionTable, 
+                (prevJoin, answers) => new GameParticipantsQuestionsAnswers(prevJoin.Game, prevJoin.Participants, prevJoin.Questions, answers),
+                new StreamTableJoinProps<string, GameParticipantsQuestions, List<AnswerQuestion>>(new StringSerDes(), new JsonSerDes<GameParticipantsQuestions>(), new JsonSerDes<List<AnswerQuestion>>())
+                )
+            .Peek((k,v) => Log.Information("Score Join 4 {@Value}", v))
+            .FlatMap((k, v) =>
+            {
+                Log.Information("* Score processing {@countAnswers} answers", v.Answers?.Count ?? 0);
+                var answers = v.Answers ?? [];
+                var results = new List<KeyValuePair<string, GameParticipantAnswerScore>>();
+                var currentQuestion = v.Questions.Questions.FirstOrDefault(q => q.QuestionNumber == v.Game.CurrentQuestionNumber)!;
+                var answersSortedByCorrectThenTime = answers
+                    .Where(a => a.AnswerIndex == currentQuestion.CorrectAnswerIndex)
+                    .OrderBy(a => a.TimestampUtc).ToList();
+                answersSortedByCorrectThenTime.AddRange(answers
+                    .Where( a => a.AnswerIndex != currentQuestion.CorrectAnswerIndex)
+                    .OrderBy(a => a.TimestampUtc));    
+                
+                foreach (var participant in v.Participants)
+                {
+                    var participantAnswer = answers.OrderBy(a => a.TimestampUtc)
+                        .FirstOrDefault(a => a.ParticipantId == participant.ParticipantId);
+                    if (participantAnswer == null || participantAnswer.AnswerIndex != currentQuestion.CorrectAnswerIndex)
                     {
-                        await Task.Delay(4 * 1000);
-                        return new NextQuestion() { GameId = kv.Value.GameId };
+                        // Score is 0
+                        Log.Information("Zero Score: {@ParticipantAnswer}, {@CurrentQuestion}", participantAnswer, currentQuestion);
+                        results.Add(new KeyValuePair<string, GameParticipantAnswerScore>(participant.ParticipantId.ToString(), new GameParticipantAnswerScore(
+                            v.Game.GameId, participant.ParticipantId, v.Game.CurrentQuestionNumber??0, participantAnswer?.AnswerIndex, 0, currentQuestion.CorrectAnswerIndex)));
+                        continue;
+                    };
+                    // every correct answer earns num players + num players you beat this round
+                    Log.Information("** Score Calc: {@ParticipantsCount} {@SortedAnswers}", v.Participants.Count, answersSortedByCorrectThenTime);
+                    var score = v.Participants.Count +
+                                (v.Participants.Count - (answersSortedByCorrectThenTime.IndexOf(participantAnswer)+1));
+                    results.Add(new KeyValuePair<string, GameParticipantAnswerScore>(participant.ParticipantId.ToString(), new GameParticipantAnswerScore(
+                        v.Game.GameId, participant.ParticipantId, v.Game.CurrentQuestionNumber??0, participantAnswer?.AnswerIndex, score ,currentQuestion.CorrectAnswerIndex)));
+                }
+                return results;
+            })
+            // explicitly writing to a topic to force serdes settings
+            .To(KafkaStreamService.TopicNames.GameParticipantAnswers, new StringSerDes(), new JsonSerDes<GameParticipantAnswerScore>());
+            
+            // aggregate to participant -> scores lookup table
+            var gameParticipantAnswersTable = builder.Stream(KafkaStreamService.TopicNames.GameParticipantAnswers, new StringSerDes(), new JsonSerDes<GameParticipantAnswerScore>())
+                .GroupByKey()
+                .Aggregate(() => new List<GameParticipantAnswerScore>(),
+                    (k, v, old) =>
+                    {
+                        old.Add(v);
+                        return old;
                     },
-                    RetryPolicy.NewBuilder().NumberOfRetry(5).Build(),
-                    new RequestSerDes<string, CloseQuestion>(new StringSerDes(), new JsonSerDes<CloseQuestion>()),
-                    new ResponseSerDes<string, NextQuestion>(new StringSerDes(), new JsonSerDes<NextQuestion>()))
-                .To(KafkaStreamService.TopicNames.NextQuestion, new StringSerDes(), new JsonSerDes<NextQuestion>());
+                    InMemory.As<string,List<GameParticipantAnswerScore>>(KafkaStreamService.TopicNames.GameParticipantAnswersTable)
+                        .WithValueSerdes<JsonSerDes<List<GameParticipantAnswerScore>>>()
+                );
+            
         
+        // push Gamestate change to QuestionResult
+        closeQuestionStream.LeftJoin(gameStateTable, (closeQuestion, game) => game with { GameState = GameState.QuestionResult})
+            .To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
+        
+        // Schedule Next question
+        closeQuestionStream
+            .MapValuesAsync<NextQuestion>(async (kv, ctx) =>
+                {
+                    await Task.Delay(4 * 1000);
+                    return new NextQuestion() { GameId = kv.Value.GameId };
+                },
+                RetryPolicy.NewBuilder().NumberOfRetry(5).Build(),
+                new RequestSerDes<string, CloseQuestion>(new StringSerDes(), new JsonSerDes<CloseQuestion>()),
+                new ResponseSerDes<string, NextQuestion>(new StringSerDes(), new JsonSerDes<NextQuestion>()))
+            .To(KafkaStreamService.TopicNames.NextQuestion, new StringSerDes(), new JsonSerDes<NextQuestion>());
+
+        return gameParticipantAnswersTable;
     }
 
 
 }
+
+/// <summary>
+/// types created to help serdes for a big join result
+/// </summary>
+///
+public record GameParticipantsQuestions(
+    Game Game,
+    List<GameParticipant> Participants,
+    GameQuestions Questions
+);
+public record GameParticipantsQuestionsAnswers(
+    Game Game,
+    List<GameParticipant> Participants,
+    GameQuestions Questions,
+    List<AnswerQuestion> Answers
+);

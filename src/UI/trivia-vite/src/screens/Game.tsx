@@ -45,6 +45,14 @@ subscription GameParticipantStateChanged($participantId:UUID!) {
       name
       participantId
     }
+    scores {
+      answerIndex
+      gameId
+      participantId
+      questionNumber
+      score
+      correctAnswerIndex
+    }
   }
 }
 `

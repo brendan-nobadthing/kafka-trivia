@@ -26,7 +26,10 @@ public class KafkaInit(ProducerConfig producerConfig)
                 KafkaStreamService.TopicNames.CloseQuestion,
                 KafkaStreamService.TopicNames.AnswerQuestion,
                 KafkaStreamService.TopicNames.AnswersByQuestionTable,
-                KafkaStreamService.TopicNames.GameParticipantState
+                KafkaStreamService.TopicNames.GameParticipantPartialState,
+                KafkaStreamService.TopicNames.GameParticipantState,
+                KafkaStreamService.TopicNames.GameParticipantAnswers,
+                KafkaStreamService.TopicNames.GameParticipantAnswersTable
             };
 
             bool deleteTopics = false; // TODO - config

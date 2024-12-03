@@ -17,6 +17,11 @@ export function QuestionResult() {
 
     const userGameState = useGameStore(s => s.gameParticipantState)
 
+    let currentScore = userGameState.scores?.find(s => s.questionNumber == userGameState.game.currentQuestionNumber);
+    let isCorrect = currentScore && currentScore.answerIndex == currentScore?.correctAnswerIndex
+    let yourAnswer =  currentScore?.answerIndex == null ? 'with nothing!' : userGameState.answers[currentScore.answerIndex] ;
+    let correctAnswer = currentScore? userGameState.answers[currentScore.correctAnswerIndex] : null; 
+    
   return (
     <>
      <h1>Fast Trivia</h1>
@@ -29,8 +34,11 @@ export function QuestionResult() {
           </CardHeader>
           <CardContent className="space-y-2">
          
-            TODO: QuestionResultHere!
-
+              <h2>{isCorrect ? 'Correct!':'Wrong!' }</h2>
+              You Answered: { yourAnswer }<br/>
+              { currentScore && !isCorrect ? <>Correct Answer: {correctAnswer}<br/></> : "" }
+              Score: { currentScore ? currentScore.score : 0 }
+          
           </CardContent>
           <CardFooter>
             

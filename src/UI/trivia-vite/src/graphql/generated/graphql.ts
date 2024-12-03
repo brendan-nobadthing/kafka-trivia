@@ -23,6 +23,7 @@ export type AnswerQuestionInput = {
   gameId: Scalars['UUID']['input'];
   participantId: Scalars['UUID']['input'];
   questionNumber: Scalars['Int']['input'];
+  timestampUtc?: InputMaybe<Scalars['DateTime']['input']>;
 };
 
 export type BoolResponse = {
@@ -51,12 +52,23 @@ export type GameParticipant = {
   participantId: Scalars['UUID']['output'];
 };
 
+export type GameParticipantAnswerScore = {
+  __typename?: 'GameParticipantAnswerScore';
+  answerIndex?: Maybe<Scalars['Int']['output']>;
+  correctAnswerIndex: Scalars['Int']['output'];
+  gameId: Scalars['UUID']['output'];
+  participantId: Scalars['UUID']['output'];
+  questionNumber: Scalars['Int']['output'];
+  score: Scalars['Int']['output'];
+};
+
 export type GameParticipantState = {
   __typename?: 'GameParticipantState';
   answers: Array<Scalars['String']['output']>;
   currentQuestion: Scalars['String']['output'];
   game: Game;
   participant: GameParticipant;
+  scores?: Maybe<Array<GameParticipantAnswerScore>>;
 };
 
 export type GameParticipants = {
