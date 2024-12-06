@@ -364,7 +364,11 @@ public static class StreamBuilders
             
         
         // push Gamestate change to QuestionResult
-        closeQuestionStream.LeftJoin(gameStateTable, (closeQuestion, game) => game with { GameState = GameState.QuestionResult})
+        closeQuestionStream.LeftJoin(gameStateTable, (closeQuestion, game) => game with
+            {
+                GameState = GameState.QuestionResult,
+                CurrentQuestionStats = ""
+            })
             .To(KafkaStreamService.TopicNames.GameState, new StringSerDes(), new JsonSerDes<Game>());
         
         // Schedule Next question
