@@ -32,7 +32,7 @@ export function QuestionOpen() {
         <Card>
           <CardHeader>
             <CardTitle>Question {userGameState.game.currentQuestionNumber}</CardTitle>
-            <CardDescription>
+            <CardDescription className="text-xl">
              {userGameState.currentQuestion}
             </CardDescription>
           </CardHeader>
